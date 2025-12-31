@@ -153,6 +153,10 @@ Vector index? ─┬─► Dataset < 100K rows ────► No index (exact s
                │
                ├─► On AlloyDB ──────────────► ScaNN (Google optimized)
                │
+               ├─► On Azure ────────────────► pg_diskann (32x less memory)
+               │
+               ├─► Billions of vectors ─────► VectorChord vchordrq (self-host)
+               │
                └─► Dimensions > 2000 ───────► halfvec or binary quantization
 ```
 
@@ -312,6 +316,9 @@ SET ivfflat.probes = 10;
 | Connection timeout | Pool exhausted | Increase pool size or fix leaks |
 | Extension not found | Not installed | `CREATE EXTENSION name;` |
 | HNSW build OOM | Insufficient memory | Increase `maintenance_work_mem` |
+| Filtered queries return few results | Filtering after index scan | Enable `hnsw.iterative_scan` |
+| Connection drops in production | No health checking | Use `check=ConnectionPool.check_connection` |
+| Scaling past 100M vectors | pgvector limits | Consider VectorChord vchordrq |
 
 For detailed troubleshooting, see [search-vectors-json.md](references/search-vectors-json.md#troubleshooting).
 
