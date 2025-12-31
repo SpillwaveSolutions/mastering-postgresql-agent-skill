@@ -338,12 +338,14 @@ python scripts/vector_search.py --demo
 
 | Provider | pgvector | BM25 Support | Connection Pooling |
 |----------|----------|--------------|-------------------|
-| AWS RDS/Aurora | 0.8+ | ❌ | RDS Proxy |
-| GCP Cloud SQL | 0.8+ | ❌ | Cloud SQL Proxy |
-| GCP AlloyDB | ✅ + ScaNN | ❌ | Built-in |
-| Azure Flexible | 0.8+ | ❌ | Built-in PgBouncer |
+| AWS RDS/Aurora | 0.8.0 | pg_textsearch (preview) | RDS Proxy |
+| GCP Cloud SQL | 0.8.0 | pg_textsearch (preview) | Cloud SQL Proxy |
+| GCP AlloyDB | 0.8.0 + ScaNN | pg_textsearch (preview) | Built-in |
+| Azure Flexible | 0.8.0 | pg_textsearch (preview) | Built-in PgBouncer |
 
-For BM25/pg_search: Self-host PostgreSQL or use ParadeDB managed service.
+**BM25 Options:**
+- **pg_search (ParadeDB)**: Production-ready, self-host or ParadeDB managed service
+- **pg_textsearch (TigerData)**: Preview status, available on managed PostgreSQL services
 
 See [cloud-deployments.md](references/cloud-deployments.md) for setup commands.
 

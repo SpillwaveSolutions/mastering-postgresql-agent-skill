@@ -212,6 +212,33 @@ WHERE description @@@ 'wireless keyboard';
 | Phrase search | Via <-> | Built-in quotes |
 | Setup complexity | Low | Medium |
 
+### Alternative: pg_textsearch (TigerData)
+
+> **Note**: pg_textsearch is in preview status as of December 2025.
+
+TigerData's pg_textsearch provides BM25 ranking optimized for hybrid AI search workflows.
+
+```sql
+-- TigerData/Timescale pg_textsearch (preview)
+CREATE EXTENSION pg_textsearch;
+
+-- Create BM25 index
+CREATE INDEX ON products USING bm25 (title, description);
+
+-- Query with <@> operator
+SELECT title, bm25_score(products) AS score
+FROM products
+WHERE description <@> 'wireless keyboard'
+ORDER BY score DESC;
+```
+
+| Feature | pg_search (ParadeDB) | pg_textsearch (TigerData) |
+|---------|---------------------|---------------------------|
+| Status | Production | Preview |
+| Operator | `@@@` | `<@>` |
+| Engine | Tantivy (Rust) | Custom |
+| Focus | Full search platform | BM25 for hybrid AI |
+
 ---
 
 ## Trigram Fuzzy Search
