@@ -11,6 +11,7 @@ Production deployment on AWS, GCP, and Azure with PostgreSQL search and vector c
 - [Azure Database for PostgreSQL](#azure-database-for-postgresql)
 - [Connection Pooling](#connection-pooling)
 - [Production Configuration](#production-configuration)
+- [Serverless PostgreSQL (Neon and Supabase)](#serverless-postgresql-neon-and-supabase)
 - [Cost Optimization](#cost-optimization)
 
 ---
@@ -521,6 +522,84 @@ FROM pg_stat_user_tables
 WHERE n_live_tup > 1000
 ORDER BY seq_scan DESC;
 ```
+
+---
+
+## Serverless PostgreSQL (Neon and Supabase)
+
+For developer-focused workflows, serverless PostgreSQL options offer advantages over traditional managed services.
+
+### Neon
+
+Scale-to-zero PostgreSQL with instant database branching.
+
+```bash
+# Connect via connection string from Neon console
+psql "postgresql://user:pass@ep-cool-name-123456.us-east-2.aws.neon.tech/neondb?sslmode=require"
+```
+
+```sql
+-- Enable pgvector (pre-installed)
+CREATE EXTENSION vector;
+
+-- Standard pgvector queries work as-is
+SELECT * FROM documents ORDER BY embedding <=> $1::vector LIMIT 10;
+```
+
+**Key features:**
+- **Scale-to-zero**: No charges when idle (auto-suspend after 5 min)
+- **Instant branching**: Copy-on-write clones for CI/CD, previews, testing
+- **Vercel integration**: Auto-create branches per PR
+- pgvector included, no superuser restrictions
+
+| Factor | Neon |
+|--------|------|
+| pgvector | ✅ Pre-installed |
+| pg_search (BM25) | ✅ Available |
+| Scale-to-zero | ✅ True serverless |
+| Branching | ✅ Instant (CoW) |
+| Best for | Dev/test, bursty workloads, CI/CD |
+
+### Supabase
+
+Backend-as-a-Service with PostgreSQL, auth, real-time, and storage.
+
+```bash
+# Connect via connection string from Supabase dashboard
+psql "postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres"
+```
+
+```sql
+-- Enable pgvector
+CREATE EXTENSION vector;
+
+-- Supabase includes real-time subscriptions on tables
+ALTER TABLE documents REPLICA IDENTITY FULL;
+```
+
+**Key features:**
+- **BaaS bundle**: Auth, real-time, storage, edge functions included
+- **Auto-generated APIs**: REST and GraphQL from schema
+- **Git-integrated branching**: Provisions DB + runs migrations
+- pgvector included for vector workloads
+
+| Factor | Supabase |
+|--------|----------|
+| pgvector | ✅ Pre-installed |
+| pg_search (BM25) | ✅ Available |
+| Real-time | ✅ Built-in subscriptions |
+| Auth | ✅ Included |
+| Best for | Full-stack apps, rapid prototyping |
+
+### Serverless vs Traditional Managed
+
+| Factor | Neon/Supabase | AWS RDS/Aurora | GCP Cloud SQL | Azure Flexible |
+|--------|---------------|----------------|---------------|----------------|
+| Scale-to-zero | ✅ | Aurora Serverless v2 only | ❌ | ❌ |
+| Instant branching | ✅ | ❌ | ❌ | ❌ |
+| Setup complexity | Low | Medium | Medium | Medium |
+| Enterprise compliance | Growing | ✅ Full | ✅ Full | ✅ Full |
+| Best for | Dev, startups | Enterprise | Enterprise | Enterprise |
 
 ---
 

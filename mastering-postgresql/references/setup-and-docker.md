@@ -8,6 +8,7 @@ Local development environment, extension installation, and PostgreSQL configurat
 - [Extension Installation](#extension-installation)
 - [PostgreSQL Configuration](#postgresql-configuration)
 - [Development Workflow](#development-workflow)
+- [psql Quick Reference](#psql-quick-reference)
 - [Troubleshooting Setup](#troubleshooting-setup)
 
 ---
@@ -310,6 +311,89 @@ docker run --rm -v postgres_data:/data -v $(pwd):/backup \
 # Restore volume
 docker run --rm -v postgres_data:/data -v $(pwd):/backup \
   alpine tar xzf /backup/postgres_backup.tar.gz -C /
+```
+
+---
+
+## psql Quick Reference
+
+Common commands for exploring PostgreSQL schemas and debugging.
+
+### Meta-Commands
+
+| Command | Description |
+|---------|-------------|
+| `\l` | List all databases |
+| `\c dbname` | Connect to database |
+| `\dt` | List tables in current schema |
+| `\dt+` | List tables with sizes |
+| `\d tablename` | Describe table structure |
+| `\d+ tablename` | Describe with storage info |
+| `\di` | List indexes |
+| `\di+ tablename` | Index details for table |
+| `\dx` | List installed extensions |
+| `\df` | List functions |
+| `\dn` | List schemas |
+| `\du` | List roles/users |
+| `\timing` | Toggle query timing display |
+| `\x` | Toggle expanded output |
+| `\q` | Quit psql |
+
+### Schema Exploration
+
+```sql
+-- Check extensions and versions
+\dx
+
+-- Inspect table with indexes
+\d+ documents
+
+-- List all indexes on a table
+SELECT indexname, indexdef
+FROM pg_indexes
+WHERE tablename = 'documents';
+
+-- Check index sizes
+SELECT indexrelname, pg_size_pretty(pg_relation_size(indexrelid))
+FROM pg_stat_user_indexes
+WHERE relname = 'documents';
+```
+
+### Query Analysis
+
+```sql
+-- Basic explain
+EXPLAIN SELECT * FROM documents WHERE id = 1;
+
+-- With execution stats (actually runs query)
+EXPLAIN ANALYZE SELECT * FROM documents
+WHERE search_vector @@ to_tsquery('postgresql');
+
+-- Full analysis with buffers
+EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)
+SELECT * FROM documents
+ORDER BY embedding <=> '[0.1,0.2,0.3]'::vector
+LIMIT 10;
+```
+
+**Reading EXPLAIN output:**
+- `Seq Scan`: Full table scan (may need index)
+- `Index Scan`: Using index (good)
+- `Bitmap Index Scan`: GIN/multiple conditions
+- `actual time`: Real execution time in ms
+- `rows`: Actual vs estimated row count
+
+### Running Scripts
+
+```bash
+# Execute SQL file
+psql -f schema.sql "postgresql://user:pass@localhost/mydb"
+
+# Run single command
+psql -c "SELECT version();" "postgresql://user:pass@localhost/mydb"
+
+# Interactive with connection string
+psql "postgresql://user:pass@localhost:5432/mydb"
 ```
 
 ---
