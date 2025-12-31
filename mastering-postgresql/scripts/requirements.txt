@@ -1,0 +1,12 @@
+# PostgreSQL Python Development Skill - Dependencies
+# Install with: pip install -r requirements.txt
+
+# Database drivers
+psycopg2-binary>=2.9.0    # Sync PostgreSQL adapter
+asyncpg>=0.29.0           # Async PostgreSQL adapter
+
+# pgvector support
+pgvector>=0.2.0           # Vector type support for Python
+
+# Utilities
+numpy>=1.24.0             # Vector operations

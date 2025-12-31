@@ -1,0 +1,22 @@
+{
+  "name": "mastering-postgresql-agentic-skill",
+  "owner": {
+    "name": "Richard Hightower",
+    "email": "rhightower@spillwave.com"
+  },
+  "metadata": {
+    "description": "PostgreSQL development for Python with full-text search, vector similarity, and production deployment",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "mastering-postgresql",
+      "description": "PostgreSQL development for Python with full-text search (tsvector, tsquery, BM25 via pg_search), vector similarity (pgvector with HNSW/IVFFlat), JSONB and array indexing, and production deployment. Use when creating search features, storing AI embeddings, querying vector similarity, optimizing PostgreSQL indexes, or deploying to AWS RDS/Aurora, GCP Cloud SQL/AlloyDB, or Azure.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./mastering-postgresql"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+# ParadeDB with BM25 search support for development
+# Usage: docker-compose -f docker-compose-paradedb.yml up -d
+
+version: '3.8'
+
+services:
+  paradedb:
+    image: paradedb/paradedb:latest
+    container_name: paradedb
+    environment:
+      POSTGRES_USER: devuser
+      POSTGRES_PASSWORD: devpass
+      POSTGRES_DB: devdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - paradedb_data:/var/lib/postgresql/data
+      - ./init-paradedb:/docker-entrypoint-initdb.d
+    shm_size: '512mb'
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c work_mem=64MB
+      -c maintenance_work_mem=512MB
+      -c effective_cache_size=1GB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c max_parallel_workers_per_gather=2
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U devuser -d devdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  paradedb_data:
+    name: paradedb_data
+
+# Quick start:
+# 1. docker-compose -f docker-compose-paradedb.yml up -d
+# 2. docker exec -it paradedb psql -U devuser -d devdb
+# 3. CREATE EXTENSION pg_search;
+# 4. CREATE EXTENSION vector;  (pgvector also included)
+#
+# BM25 Example:
+# CREATE INDEX ON products USING bm25 (id, title, description) WITH (key_field='id');
+# SELECT title, paradedb.score(id) FROM products WHERE description @@@ 'search term';
