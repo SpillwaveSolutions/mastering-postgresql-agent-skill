@@ -1,6 +1,10 @@
 ---
 name: mastering-postgresql
 description: PostgreSQL development for Python with full-text search (tsvector, tsquery, BM25 via pg_search), vector similarity (pgvector with HNSW/IVFFlat), JSONB and array indexing, and production deployment. Use when creating search features, storing AI embeddings, querying vector similarity, optimizing PostgreSQL indexes, or deploying to AWS RDS/Aurora, GCP Cloud SQL/AlloyDB, or Azure. Covers psycopg2, psycopg3, asyncpg, SQLAlchemy integration, Docker development setup, and index selection strategies. Triggers: "PostgreSQL search", "pgvector", "BM25 postgres", "JSONB index", "psycopg", "asyncpg", "PostgreSQL Docker", "AlloyDB vector". Does NOT cover: DBA administration (backup, replication, users), MySQL/MongoDB/Redis, schema design theory, stored procedures.
+allowed-tools:
+  - Read
+  - Bash
+  - Write
 ---
 
 # PostgreSQL Python Development
@@ -16,7 +20,11 @@ Build search, vector similarity, and data-intensive applications with PostgreSQL
 | pgvector & JSONB indexing | [search-vectors-json.md](references/search-vectors-json.md) |
 | Python drivers & pools | [python-drivers.md](references/python-drivers.md) |
 | Python query patterns | [python-queries.md](references/python-queries.md) |
-| Cloud deployment | [cloud-deployments.md](references/cloud-deployments.md) |
+| AWS RDS/Aurora | [cloud-aws.md](references/cloud-aws.md) |
+| GCP Cloud SQL/AlloyDB | [cloud-gcp.md](references/cloud-gcp.md) |
+| Azure Flexible Server | [cloud-azure.md](references/cloud-azure.md) |
+| Neon & Supabase | [cloud-serverless.md](references/cloud-serverless.md) |
+| Cloud common (pooling, config) | [cloud-common.md](references/cloud-common.md) |
 
 ## When NOT to Use This Skill
 
@@ -191,88 +199,17 @@ Column type? ─┬─► Scalar (int, text, timestamp) ─► B-tree (default)
 
 ## Common Patterns
 
-### Full-Text Search (FTS) with Ranking
+For implementation details, see the reference files:
 
-```sql
-SELECT title, ts_rank(search_vector, query) AS rank,
-       ts_headline('english', content, query) AS snippet
-FROM documents, websearch_to_tsquery('english', 'database optimization') query
-WHERE search_vector @@ query
-ORDER BY rank DESC LIMIT 20;
-
--- Verify index is used:
--- EXPLAIN (ANALYZE) shows "Bitmap Index Scan on idx_docs_search"
-```
-
-### BM25 Search (pg_search)
-
-```sql
--- Create BM25 index (ParadeDB only)
-CREATE INDEX ON products USING bm25 (id, title, description) WITH (key_field='id');
-
--- Search with score
-SELECT title, paradedb.score(id) AS score
-FROM products WHERE description @@@ 'wireless keyboard'
-ORDER BY score DESC;
-```
-
-### Vector Similarity (Cosine)
-
-```sql
--- Find similar documents
-SELECT id, title, embedding <=> $1::vector AS distance
-FROM documents
-ORDER BY embedding <=> $1::vector
-LIMIT 10;
-
--- Verify HNSW index is used:
--- EXPLAIN shows "Index Scan using idx_docs_embedding"
-```
-
-### JSONB Containment Query
-
-```sql
--- Index
-CREATE INDEX ON products USING GIN (data jsonb_path_ops);
-
--- Query
-SELECT * FROM products WHERE data @> '{"category": "electronics", "in_stock": true}';
-```
-
-### Array Overlap Query
-
-```sql
--- Index
-CREATE INDEX ON posts USING GIN (tags);
-
--- Query (find posts with any of these tags)
-SELECT * FROM posts WHERE tags && ARRAY['python', 'postgresql'];
-```
-
-### Bulk Insert (Python)
-
-```python
-# asyncpg - fastest method
-await conn.copy_records_to_table('documents', records=[
-    (title, content, embedding) for title, content, embedding in data
-], columns=['title', 'content', 'embedding'])
-
-# psycopg2 - use execute_values
-from psycopg2.extras import execute_values
-execute_values(cur, "INSERT INTO documents (title, content) VALUES %s", data)
-```
-
-### Connection Pool (asyncpg)
-
-```python
-pool = await asyncpg.create_pool(
-    'postgresql://user:pass@localhost/db',
-    min_size=5, max_size=20,
-    command_timeout=60
-)
-async with pool.acquire() as conn:
-    result = await conn.fetch("SELECT * FROM documents WHERE id = $1", doc_id)
-```
+| Pattern | Reference |
+|---------|-----------|
+| Full-text search with ranking | [search-fulltext.md#ranking-functions](references/search-fulltext.md#ranking-functions) |
+| BM25 search | [search-fulltext.md#bm25-with-pg_search](references/search-fulltext.md#bm25-with-pg_search) |
+| Vector similarity | [search-vectors-json.md#distance-operators](references/search-vectors-json.md#distance-operators) |
+| JSONB containment | [search-vectors-json.md#jsonb-indexing](references/search-vectors-json.md#jsonb-indexing) |
+| Array overlap | [search-vectors-json.md#array-indexing](references/search-vectors-json.md#array-indexing) |
+| Bulk insert | [python-queries.md#bulk-insert-strategies](references/python-queries.md#bulk-insert-strategies) |
+| Connection pool | [python-drivers.md#asyncpg-async-only](references/python-drivers.md#asyncpg-async-only) |
 
 ## Index Tuning Quick Reference
 
@@ -325,20 +262,24 @@ For detailed troubleshooting, see [search-vectors-json.md](references/search-vec
 ## Script Usage
 
 ```bash
-# Install dependencies first
-pip install -r scripts/requirements.txt
+pip install -r scripts/requirements.txt  # Install dependencies first
+```
 
-# Install and verify extensions
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
+| `setup_extensions.py` | Install pgvector, pg_trgm extensions | Initial database setup |
+| `create_search_tables.py` | Create tables with search_vector and embedding columns | After extensions installed |
+| `health_check.py` | Check index health, bloat, and performance | Diagnosing slow queries |
+| `vector_search.py --demo` | Demonstrate vector similarity queries | Learning pgvector patterns |
+| `bulk_insert.py` | High-performance data loading | Importing large datasets |
+| `fts_examples.py` | Full-text search query examples | Learning FTS syntax |
+| `connection_pool.py` | Connection pooling patterns | Production deployments |
+
+**Example:**
+```bash
 python scripts/setup_extensions.py --host localhost --dbname mydb
-
-# Create search-ready tables
 python scripts/create_search_tables.py --host localhost --dbname mydb
-
-# Check index health and performance
 python scripts/health_check.py --host localhost --dbname mydb
-
-# Example vector operations
-python scripts/vector_search.py --demo
 ```
 
 ## Cloud Quick Reference
@@ -352,13 +293,13 @@ python scripts/vector_search.py --demo
 | Neon | ✅ | pg_search | Built-in |
 | Supabase | ✅ | pg_search | Built-in |
 
-**Serverless options:** Neon (scale-to-zero, instant branching) and Supabase (BaaS with auth/real-time) are ideal for dev/test and startups. See [cloud-deployments.md](references/cloud-deployments.md#serverless-postgresql-neon-and-supabase).
+**Serverless options:** Neon (scale-to-zero, instant branching) and Supabase (BaaS with auth/real-time) are ideal for dev/test and startups. See [cloud-serverless.md](references/cloud-serverless.md).
 
 **BM25 Options:**
 - **pg_search (ParadeDB)**: Production-ready, self-host or ParadeDB managed service
 - **pg_textsearch (TigerData)**: Preview status, available on managed PostgreSQL services
 
-See [cloud-deployments.md](references/cloud-deployments.md) for setup commands.
+See provider-specific files for setup commands: [AWS](references/cloud-aws.md) | [GCP](references/cloud-gcp.md) | [Azure](references/cloud-azure.md)
 
 ## Reference Files
 
@@ -371,4 +312,8 @@ Load these for detailed implementation guidance:
 | [search-vectors-json.md](references/search-vectors-json.md) | pgvector tuning, JSONB/array indexing, maintenance |
 | [python-drivers.md](references/python-drivers.md) | psycopg2/psycopg3/asyncpg, connection pools, SQLAlchemy |
 | [python-queries.md](references/python-queries.md) | Bulk inserts, FTS queries, vector queries, JSONB operations |
-| [cloud-deployments.md](references/cloud-deployments.md) | AWS/GCP/Azure setup, AlloyDB ScaNN, production config |
+| [cloud-aws.md](references/cloud-aws.md) | AWS RDS/Aurora setup, RDS Proxy |
+| [cloud-gcp.md](references/cloud-gcp.md) | GCP Cloud SQL/AlloyDB, ScaNN indexes |
+| [cloud-azure.md](references/cloud-azure.md) | Azure Flexible Server, pg_diskann |
+| [cloud-serverless.md](references/cloud-serverless.md) | Neon, Supabase (scale-to-zero, branching) |
+| [cloud-common.md](references/cloud-common.md) | Extension matrix, pooling, production config, costs |
