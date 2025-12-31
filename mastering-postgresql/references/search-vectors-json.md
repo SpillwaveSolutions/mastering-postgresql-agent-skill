@@ -82,6 +82,25 @@ SET hnsw.ef_search = 100;  -- Default 40. Higher = better recall, slower
 SHOW hnsw.ef_search;
 ```
 
+**Filtered query optimization (pgvector 0.7+):**
+
+```sql
+-- Enable iterative scan for filtered queries
+SET hnsw.iterative_scan = strict_order;  -- or 'relaxed_order' for better recall
+SET hnsw.max_scan_tuples = 50000;        -- Limit tuples scanned
+
+-- Query with filter uses iterative scan
+SELECT * FROM documents
+WHERE category = 'tutorial'
+ORDER BY embedding <=> $1::vector
+LIMIT 10;
+```
+
+| Mode | Behavior |
+|------|----------|
+| `strict_order` | Maintains exact distance ordering |
+| `relaxed_order` | Better recall, may reorder slightly |
+
 **Build memory:**
 
 ```sql
