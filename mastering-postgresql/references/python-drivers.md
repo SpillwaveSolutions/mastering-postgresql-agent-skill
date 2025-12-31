@@ -168,6 +168,67 @@ async def main():
     await pool.close()
 ```
 
+### psycopg3 Pool with pgvector Type Registration
+
+Use the `configure` callback to register pgvector types on every connection:
+
+```python
+from psycopg_pool import AsyncConnectionPool
+from pgvector.psycopg import register_vector
+
+async def configure_connection(conn):
+    """Configure every connection with pgvector types."""
+    await register_vector(conn)
+
+pool = AsyncConnectionPool(
+    "postgresql://user:pass@localhost/mydb",
+    min_size=5,
+    max_size=20,
+    configure=configure_connection,
+    open=False  # Required for async pools
+)
+```
+
+### FastAPI Lifespan Integration
+
+The recommended pattern for managing pool lifecycle in FastAPI:
+
+```python
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends
+from psycopg_pool import AsyncConnectionPool
+from pgvector.psycopg import register_vector
+
+async def configure_conn(conn):
+    await register_vector(conn)
+
+pool = AsyncConnectionPool(
+    conninfo="postgresql://user:pass@localhost/mydb",
+    min_size=5,
+    max_size=20,
+    configure=configure_conn,
+    open=False
+)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Open pool on startup, close on shutdown."""
+    await pool.open()
+    yield
+    await pool.close()
+
+app = FastAPI(lifespan=lifespan)
+
+async def get_db():
+    """Dependency for route handlers."""
+    async with pool.connection() as conn:
+        yield conn
+
+@app.get("/search")
+async def search(q: str, conn=Depends(get_db)):
+    return await conn.fetch("SELECT * FROM docs WHERE ...")
+```
+
 ### asyncpg (Async Only)
 
 ```python

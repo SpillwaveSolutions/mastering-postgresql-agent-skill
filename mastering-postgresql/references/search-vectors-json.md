@@ -260,6 +260,27 @@ CREATE INDEX idx_tags ON posts USING GIN (tags);
 SELECT indexname FROM pg_indexes WHERE indexname = 'idx_tags';
 ```
 
+### intarray Extension (Integer Arrays)
+
+For integer arrays, the `intarray` extension provides an optimized operator class:
+
+```sql
+-- Enable extension
+CREATE EXTENSION intarray;
+
+-- Create optimized index for integer arrays
+CREATE INDEX idx_labels ON items USING GIN (label_ids gin__int_ops);
+
+-- Queries use same operators but with better performance
+SELECT * FROM items WHERE label_ids @> ARRAY[1, 5, 10];
+SELECT * FROM items WHERE label_ids && ARRAY[1, 2, 3];
+```
+
+| Index Type | Best For | Size | Performance |
+|------------|----------|------|-------------|
+| GIN (default) | Text/any arrays | Larger | Good |
+| GIN gin__int_ops | Integer arrays | Smaller | Better |
+
 ### Array Operators (Index-Supported)
 
 | Operator | Meaning | Example |
@@ -328,6 +349,30 @@ EXPLAIN SELECT email, name, created_at FROM users WHERE email = 'test@example.co
 ---
 
 ## Index Maintenance
+
+### Autovacuum Settings for Vector Tables
+
+HNSW and GIN indexes generate significant bloat during updates. Configure aggressive autovacuum for vector-heavy tables:
+
+```sql
+-- Aggressive settings for vector tables
+ALTER TABLE documents SET (
+    autovacuum_vacuum_scale_factor = 0.01,   -- Trigger at 1% changed (default 20%)
+    autovacuum_vacuum_threshold = 50,         -- Minimum rows before trigger
+    autovacuum_analyze_scale_factor = 0.01,   -- Keep statistics fresh
+    autovacuum_vacuum_cost_delay = 2          -- Faster vacuum execution
+);
+
+-- Verify settings
+SELECT relname, reloptions
+FROM pg_class
+WHERE relname = 'documents';
+```
+
+**Why aggressive settings for vectors:**
+- HNSW graph structure creates many dead tuples on updates
+- Bloated indexes degrade query performance significantly
+- Default 20% threshold is too high for vector workloads
 
 ### Monitor Index Usage
 

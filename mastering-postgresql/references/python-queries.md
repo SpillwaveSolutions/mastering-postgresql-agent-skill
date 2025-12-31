@@ -277,6 +277,72 @@ async def hybrid_search(
         return [dict(r) for r in rows]
 ```
 
+### Reciprocal Rank Fusion (RRF)
+
+RRF is the industry-standard algorithm for hybrid search. Unlike weighted scoring, RRF uses rank positions which normalizes across different score scales.
+
+**Formula**: `score = 1 / (k + rank)` where k=60 is standard.
+
+```python
+async def hybrid_search_rrf(
+    pool: asyncpg.Pool,
+    query_text: str,
+    query_embedding: list[float],
+    k: int = 60,
+    limit: int = 20
+) -> list[dict]:
+    """
+    Hybrid search using Reciprocal Rank Fusion (RRF).
+
+    RRF normalizes scores by rank position, making it more robust
+    than weighted scoring when combining different search methods.
+
+    Args:
+        pool: asyncpg connection pool
+        query_text: Keywords for full-text search
+        query_embedding: Vector for semantic search
+        k: RRF constant (default 60, industry standard)
+        limit: Max results to return
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            WITH semantic AS (
+                SELECT id, RANK() OVER (ORDER BY embedding <=> $1::vector) as rank
+                FROM documents
+                ORDER BY embedding <=> $1::vector
+                LIMIT 50
+            ),
+            keyword AS (
+                SELECT id, RANK() OVER (
+                    ORDER BY ts_rank_cd(search_vector, query) DESC
+                ) as rank
+                FROM documents, plainto_tsquery('english', $2) query
+                WHERE search_vector @@ query
+                LIMIT 50
+            )
+            SELECT
+                COALESCE(s.id, k.id) as id,
+                d.title,
+                d.content,
+                (COALESCE(1.0 / ($3 + s.rank), 0.0) +
+                 COALESCE(1.0 / ($3 + k.rank), 0.0)) as rrf_score
+            FROM semantic s
+            FULL OUTER JOIN keyword k ON s.id = k.id
+            JOIN documents d ON d.id = COALESCE(s.id, k.id)
+            ORDER BY rrf_score DESC
+            LIMIT $4
+        """, query_embedding, query_text, k, limit)
+
+        return [dict(r) for r in rows]
+```
+
+**When to use RRF vs Weighted:**
+| Scenario | Recommendation |
+|----------|----------------|
+| Production hybrid search | RRF (more robust) |
+| Known score distributions | Weighted (tunable) |
+| Combining 3+ search methods | RRF (scales better) |
+
 ---
 
 ## JSONB and Array Operations

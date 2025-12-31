@@ -20,13 +20,17 @@ Production deployment on AWS, GCP, and Azure with PostgreSQL search and vector c
 | Extension | AWS RDS | AWS Aurora | GCP Cloud SQL | GCP AlloyDB | Azure Flexible |
 |-----------|---------|------------|---------------|-------------|----------------|
 | **pgvector** | 0.8.0 | 0.8.0 | 0.8.0 | ✅ (native) | 0.8.0 |
+| **pg_diskann** | ❌ | ❌ | ❌ | ❌ | ✅ (GA) |
+| **alloydb_scann** | ❌ | ❌ | ❌ | ✅ | ❌ |
 | **pg_trgm** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **pg_search (BM25)** | ❌ | ❌ | ❌ | ❌ | ❌ |
 | **pg_stat_statements** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **uuid-ossp** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **hstore** | ✅ | ✅ | ✅ | ✅ | ✅ |
 
-**Note:** pg_search/BM25 requires self-hosted PostgreSQL or ParadeDB managed service.
+**Notes:**
+- pg_search/BM25 requires self-hosted PostgreSQL or ParadeDB managed service
+- pg_diskann (Azure) and alloydb_scann (GCP) are cloud-specific optimized vector indexes
 
 ---
 
@@ -345,6 +349,44 @@ Then in SQL:
 CREATE EXTENSION vector;
 CREATE EXTENSION pg_trgm;
 ```
+
+### pg_diskann Index (Azure Exclusive)
+
+DiskANN is Microsoft's disk-based vector index, now GA on Azure PostgreSQL.
+
+**Advantages over HNSW:**
+- 32x lower memory footprint (stores index on SSD)
+- Up to 10x lower latency at 95% recall
+- 4x lower cost due to reduced compute requirements
+- Scales to billions of vectors without RAM constraints
+
+```bash
+# Enable in Azure Portal: Server parameters -> azure.extensions
+# Add both: VECTOR,DISKANN
+```
+
+```sql
+-- Enable both extensions
+CREATE EXTENSION vector;
+CREATE EXTENSION diskann;
+
+-- Create DiskANN index
+CREATE INDEX idx_docs_diskann ON documents
+  USING diskann (embedding vector_cosine_ops);
+
+-- Query uses same syntax as pgvector
+SELECT id, title, embedding <=> $1::vector AS distance
+FROM documents
+ORDER BY embedding <=> $1::vector
+LIMIT 10;
+```
+
+| Factor | HNSW | DiskANN |
+|--------|------|---------|
+| Memory | High (in-RAM) | Low (disk-based) |
+| Scale | Millions | Billions |
+| Build speed | Slower | Faster |
+| Best for | Performance-critical | Cost-sensitive, large scale |
 
 ### Enable Built-in PgBouncer
 

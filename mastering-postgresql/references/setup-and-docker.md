@@ -33,7 +33,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d
-    shm_size: '512mb'
+    shm_size: '512mb'  # Production: increase to 2gb for parallel queries
     command: >
       postgres
       -c shared_buffers=256MB
@@ -341,7 +341,8 @@ docker run --rm -v postgres_data:/data -v $(pwd):/backup \
 | Slow index build | Low maintenance_work_mem | Increase to 1-2GB |
 | Slow queries | Missing indexes | Run EXPLAIN ANALYZE |
 | High memory usage | shared_buffers too high | Reduce to 25% of container memory |
-| Container OOM killed | shm_size too low | Increase shm_size in docker-compose |
+| Container OOM killed | shm_size too low | Increase shm_size (512mb dev, 2gb prod) |
+| Slow parallel queries | shm_size insufficient | Increase to 2gb for production workloads |
 
 ### Verifying Setup
 
