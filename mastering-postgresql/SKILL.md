@@ -348,7 +348,11 @@ python scripts/vector_search.py --demo
 | AWS RDS/Aurora | 0.8.0 | pg_textsearch (preview) | RDS Proxy |
 | GCP Cloud SQL | 0.8.0 | pg_textsearch (preview) | Cloud SQL Proxy |
 | GCP AlloyDB | 0.8.0 + ScaNN | pg_textsearch (preview) | Built-in |
-| Azure Flexible | 0.8.0 | pg_textsearch (preview) | Built-in PgBouncer |
+| Azure Flexible | 0.8.0 + pg_diskann | pg_textsearch (preview) | Built-in PgBouncer |
+| Neon | ✅ | pg_search | Built-in |
+| Supabase | ✅ | pg_search | Built-in |
+
+**Serverless options:** Neon (scale-to-zero, instant branching) and Supabase (BaaS with auth/real-time) are ideal for dev/test and startups. See [cloud-deployments.md](references/cloud-deployments.md#serverless-postgresql-neon-and-supabase).
 
 **BM25 Options:**
 - **pg_search (ParadeDB)**: Production-ready, self-host or ParadeDB managed service
