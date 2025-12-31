@@ -88,6 +88,7 @@ SHOW hnsw.ef_search;
 -- Enable iterative scan for filtered queries
 SET hnsw.iterative_scan = strict_order;  -- or 'relaxed_order' for better recall
 SET hnsw.max_scan_tuples = 50000;        -- Limit tuples scanned
+SET hnsw.scan_mem_multiplier = 2;        -- Memory multiplier for scans (default: 1)
 
 -- Query with filter uses iterative scan
 SELECT * FROM documents
@@ -95,6 +96,12 @@ WHERE category = 'tutorial'
 ORDER BY embedding <=> $1::vector
 LIMIT 10;
 ```
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `hnsw.iterative_scan` | off | Enable iterative scanning for filtered queries |
+| `hnsw.max_scan_tuples` | 20000 | Max tuples to visit during iterative scan |
+| `hnsw.scan_mem_multiplier` | 1 | Memory usage relative to `work_mem` |
 
 | Mode | Behavior |
 |------|----------|
@@ -144,6 +151,47 @@ SET ivfflat.probes = 10;  -- Default 1. Higher = better recall
 | Recall at same speed | ✅ Better | Lower |
 
 **Recommendation:** Use HNSW unless build time is critical.
+
+### VectorChord (Large-Scale Alternative)
+
+For datasets exceeding 100M vectors, VectorChord offers significant performance improvements over pgvector while maintaining API compatibility.
+
+```sql
+-- Install VectorChord (self-hosted only)
+CREATE EXTENSION vchord CASCADE;
+
+-- Create vchordrq index (IVF + RaBitQ quantization)
+CREATE INDEX ON documents
+USING vchordrq (embedding vector_l2_ops)
+WITH (options = $$
+    residual_quantization = true
+    [build.internal]
+    lists = [4096]
+$$);
+
+-- Query uses same syntax as pgvector
+SELECT id, title, embedding <-> $1::vector AS distance
+FROM documents
+ORDER BY embedding <-> $1::vector
+LIMIT 10;
+```
+
+| Factor | pgvector HNSW | VectorChord vchordrq |
+|--------|---------------|----------------------|
+| Query speed | Fast | 5x faster |
+| Insert throughput | Good | 16x higher |
+| Index build | Slower | 16x faster |
+| Scale | Millions | Billions (3B+ in production) |
+| Memory (100M vectors) | ~50GB+ | ~32GB |
+| Cloud managed | ✅ All major | ❌ Self-host only |
+| pgvector compatible | N/A | ✅ Full API compatibility |
+
+**When to consider VectorChord:**
+- Datasets > 100M vectors
+- Cost-sensitive deployments (400K vectors per $1 vs 15K for pgvector)
+- Self-hosted infrastructure acceptable
+
+> **Note:** Added to Thoughtworks Technology Radar (April 2025) as "Assess" category.
 
 ### Dimension Limits
 

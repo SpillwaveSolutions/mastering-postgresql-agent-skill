@@ -229,6 +229,47 @@ async def search(q: str, conn=Depends(get_db)):
     return await conn.fetch("SELECT * FROM docs WHERE ...")
 ```
 
+### Pool Health Checking (psycopg3 3.2+)
+
+For production reliability, configure pools to verify connections before serving:
+
+```python
+from psycopg_pool import ConnectionPool, AsyncConnectionPool
+
+# Sync pool with built-in health check
+pool = ConnectionPool(
+    "postgresql://user:pass@localhost/mydb",
+    min_size=5,
+    max_size=20,
+    check=ConnectionPool.check_connection,  # Validates before serving
+    max_lifetime=3600.0,   # Close connections after 1 hour
+    max_idle=600.0         # Close idle connections after 10 minutes
+)
+
+# Async pool with health check
+async_pool = AsyncConnectionPool(
+    "postgresql://user:pass@localhost/mydb",
+    min_size=5,
+    max_size=20,
+    check=AsyncConnectionPool.check_connection,
+    max_lifetime=3600.0,
+    max_idle=600.0,
+    open=False
+)
+```
+
+| Parameter | Default | Purpose |
+|-----------|---------|---------|
+| `check` | None | Callback to validate connection health before serving |
+| `max_lifetime` | 3600s | Maximum connection age before replacement |
+| `max_idle` | 600s | Close connections idle longer than this |
+| `reconnect_timeout` | 300s | Max time to retry failed connections |
+
+**When to use health checks:**
+- Production deployments with load balancers
+- Databases with `idle_session_timeout` configured
+- Environments where connections may be dropped (cloud, firewalls)
+
 ### asyncpg (Async Only)
 
 ```python
